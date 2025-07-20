@@ -7,22 +7,24 @@ import {
   Clock,
   Home,
   Settings,
-  User
+  User,
+  AlertTriangle
 } from 'lucide-react'
-import { TaskCounts } from '../types/task'
+import { TaskCounts, FilterOption } from '../types/task'
 
 interface SidebarProps {
-  activeFilter: string
-  onFilterChange: (filter: string) => void
+  activeFilter: FilterOption
+  onFilterChange: (filter: FilterOption) => void
   taskCounts: TaskCounts
 }
 
 export function Sidebar({ activeFilter, onFilterChange, taskCounts }: SidebarProps) {
   const menuItems = [
-    { id: 'all', label: 'All Tasks', icon: Home, count: taskCounts.all },
-    { id: 'today', label: 'Today', icon: Calendar, count: taskCounts.today },
-    { id: 'pending', label: 'Pending', icon: Clock, count: taskCounts.pending },
-    { id: 'completed', label: 'Completed', icon: CheckCircle2, count: taskCounts.completed },
+    { id: 'all' as FilterOption, label: 'All Tasks', icon: Home, count: taskCounts.all },
+    { id: 'today' as FilterOption, label: 'Today', icon: Calendar, count: taskCounts.today },
+    { id: 'overdue' as FilterOption, label: 'Overdue', icon: AlertTriangle, count: taskCounts.overdue, urgent: true },
+    { id: 'pending' as FilterOption, label: 'Pending', icon: Clock, count: taskCounts.pending },
+    { id: 'completed' as FilterOption, label: 'Completed', icon: CheckCircle2, count: taskCounts.completed },
   ]
 
   return (
@@ -49,6 +51,7 @@ export function Sidebar({ activeFilter, onFilterChange, taskCounts }: SidebarPro
           {menuItems.map((item) => {
             const Icon = item.icon
             const isActive = activeFilter === item.id
+            const isUrgent = item.urgent && item.count > 0
             
             return (
               <Button
@@ -57,17 +60,21 @@ export function Sidebar({ activeFilter, onFilterChange, taskCounts }: SidebarPro
                 className={`w-full justify-start h-11 ${
                   isActive 
                     ? "bg-primary text-primary-foreground shadow-sm" 
+                    : isUrgent
+                    ? "text-red-700 hover:bg-red-50"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
                 onClick={() => onFilterChange(item.id)}
               >
-                <Icon className="h-4 w-4 mr-3" />
+                <Icon className={`h-4 w-4 mr-3 ${isUrgent ? 'text-red-500' : ''}`} />
                 <span className="flex-1 text-left">{item.label}</span>
                 <Badge 
                   variant={isActive ? "secondary" : "outline"}
                   className={`ml-2 ${
                     isActive 
                       ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30" 
+                      : isUrgent
+                      ? "bg-red-100 text-red-700 border-red-200"
                       : "bg-gray-100 text-gray-600 border-gray-200"
                   }`}
                 >
@@ -94,6 +101,35 @@ export function Sidebar({ activeFilter, onFilterChange, taskCounts }: SidebarPro
                 {category}
               </Button>
             ))}
+          </div>
+        </div>
+
+        {/* Keyboard Shortcuts */}
+        <div className="mt-8">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Shortcuts
+          </h4>
+          <div className="space-y-2 text-xs text-gray-500">
+            <div className="flex justify-between">
+              <span>New task</span>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘N</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Search</span>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘F</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>All tasks</span>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘1</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Today</span>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘2</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Overdue</span>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘3</kbd>
+            </div>
           </div>
         </div>
       </nav>

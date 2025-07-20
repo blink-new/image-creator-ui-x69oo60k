@@ -5,7 +5,9 @@ import { Textarea } from './ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
-import { Task } from '../types/task'
+import { Checkbox } from './ui/checkbox'
+import { Progress } from './ui/progress'
+import { Task, Subtask } from '../types/task'
 import { 
   X,
   Calendar,
@@ -13,7 +15,12 @@ import {
   Tag,
   Trash2,
   Save,
-  Edit3
+  Edit3,
+  Plus,
+  Clock,
+  Paperclip,
+  CheckSquare,
+  AlertTriangle
 } from 'lucide-react'
 
 interface TaskDetailProps {
@@ -26,6 +33,7 @@ interface TaskDetailProps {
 export function TaskDetail({ task, onTaskUpdate, onTaskDelete, onClose }: TaskDetailProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedTask, setEditedTask] = useState<Task>(task)
+  const [newSubtask, setNewSubtask] = useState('')
 
   const handleSave = () => {
     onTaskUpdate(editedTask)
@@ -35,6 +43,37 @@ export function TaskDetail({ task, onTaskUpdate, onTaskDelete, onClose }: TaskDe
   const handleCancel = () => {
     setEditedTask(task)
     setIsEditing(false)
+  }
+
+  const addSubtask = () => {
+    if (newSubtask.trim()) {
+      const subtask: Subtask = {
+        id: Date.now().toString(),
+        title: newSubtask.trim(),
+        completed: false
+      }
+      setEditedTask({
+        ...editedTask,
+        subtasks: [...(editedTask.subtasks || []), subtask]
+      })
+      setNewSubtask('')
+    }
+  }
+
+  const toggleSubtask = (subtaskId: string) => {
+    setEditedTask({
+      ...editedTask,
+      subtasks: editedTask.subtasks?.map(st => 
+        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+      )
+    })
+  }
+
+  const removeSubtask = (subtaskId: string) => {
+    setEditedTask({
+      ...editedTask,
+      subtasks: editedTask.subtasks?.filter(st => st.id !== subtaskId)
+    })
   }
 
   const getPriorityColor = (priority: string) => {
@@ -54,6 +93,23 @@ export function TaskDetail({ task, onTaskUpdate, onTaskDelete, onClose }: TaskDe
       day: 'numeric'
     })
   }
+
+  const isOverdue = () => {
+    const today = new Date().toISOString().split('T')[0]
+    return !task.completed && task.dueDate < today
+  }
+
+  const getEstimatedTimeText = (minutes?: number) => {
+    if (!minutes) return 'Not set'
+    if (minutes < 60) return `${minutes} minutes`
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours} hours`
+  }
+
+  const completedSubtasks = editedTask.subtasks?.filter(st => st.completed).length || 0
+  const totalSubtasks = editedTask.subtasks?.length || 0
+  const subtaskProgress = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0
 
   return (
     <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
@@ -100,7 +156,19 @@ export function TaskDetail({ task, onTaskUpdate, onTaskDelete, onClose }: TaskDe
             </div>
           </div>
         ) : (
-          <h3 className="text-xl font-semibold text-gray-900">{task.title}</h3>
+          <div>
+            <div className="flex items-center space-x-2 mb-2">
+              <h3 className="text-xl font-semibold text-gray-900">{task.title}</h3>
+              {isOverdue() && (
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+              )}
+            </div>
+            {isOverdue() && (
+              <Badge variant="destructive" className="text-xs">
+                Overdue
+              </Badge>
+            )}
+          </div>
         )}
       </div>
 
@@ -122,6 +190,68 @@ export function TaskDetail({ task, onTaskUpdate, onTaskDelete, onClose }: TaskDe
             <p className="text-gray-600 leading-relaxed">
               {task.description || 'No description provided'}
             </p>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Subtasks */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-medium text-gray-700">
+              <CheckSquare className="h-4 w-4 inline mr-1" />
+              Subtasks ({completedSubtasks}/{totalSubtasks})
+            </label>
+          </div>
+          
+          {totalSubtasks > 0 && (
+            <div className="mb-4">
+              <Progress value={subtaskProgress} className="h-2" />
+              <p className="text-xs text-gray-500 mt-1">
+                {Math.round(subtaskProgress)}% complete
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-2 mb-3">
+            {editedTask.subtasks?.map((subtask) => (
+              <div key={subtask.id} className="flex items-center space-x-2 p-2 rounded border">
+                <Checkbox
+                  checked={subtask.completed}
+                  onCheckedChange={() => toggleSubtask(subtask.id)}
+                />
+                <span className={`flex-1 text-sm ${
+                  subtask.completed ? 'line-through text-gray-500' : 'text-gray-900'
+                }`}>
+                  {subtask.title}
+                </span>
+                {isEditing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSubtask(subtask.id)}
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {isEditing && (
+            <div className="flex space-x-2">
+              <Input
+                value={newSubtask}
+                onChange={(e) => setNewSubtask(e.target.value)}
+                placeholder="Add subtask..."
+                className="text-sm"
+                onKeyPress={(e) => e.key === 'Enter' && addSubtask()}
+              />
+              <Button onClick={addSubtask} size="sm" variant="outline">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
 
@@ -169,7 +299,32 @@ export function TaskDetail({ task, onTaskUpdate, onTaskDelete, onClose }: TaskDe
               onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value })}
             />
           ) : (
-            <p className="text-gray-600">{formatDate(task.dueDate)}</p>
+            <p className={`text-gray-600 ${isOverdue() ? 'text-red-600 font-medium' : ''}`}>
+              {formatDate(task.dueDate)}
+              {isOverdue() && ' (Overdue)'}
+            </p>
+          )}
+        </div>
+
+        {/* Estimated Time */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <Clock className="h-4 w-4 inline mr-1" />
+            Estimated Time
+          </label>
+          {isEditing ? (
+            <Input
+              type="number"
+              value={editedTask.estimatedTime || ''}
+              onChange={(e) => setEditedTask({ 
+                ...editedTask, 
+                estimatedTime: e.target.value ? parseInt(e.target.value) : undefined 
+              })}
+              placeholder="Minutes"
+              min="0"
+            />
+          ) : (
+            <p className="text-gray-600">{getEstimatedTimeText(task.estimatedTime)}</p>
           )}
         </div>
 
@@ -212,6 +367,29 @@ export function TaskDetail({ task, onTaskUpdate, onTaskDelete, onClose }: TaskDe
               </Badge>
             ))}
           </div>
+        </div>
+
+        {/* Attachments */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <Paperclip className="h-4 w-4 inline mr-1" />
+            Attachments
+          </label>
+          {task.attachments && task.attachments.length > 0 ? (
+            <div className="space-y-2">
+              {task.attachments.map((attachment) => (
+                <div key={attachment.id} className="flex items-center space-x-2 p-2 border rounded">
+                  <Paperclip className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-gray-900">{attachment.name}</span>
+                  <span className="text-xs text-gray-500">
+                    ({(attachment.size / 1024).toFixed(1)} KB)
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No attachments</p>
+          )}
         </div>
 
         <Separator />

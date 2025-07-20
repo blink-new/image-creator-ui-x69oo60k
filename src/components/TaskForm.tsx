@@ -3,7 +3,9 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Task } from '../types/task'
+import { Badge } from './ui/badge'
+import { Task, Subtask } from '../types/task'
+import { Plus, X, Clock } from 'lucide-react'
 
 interface TaskFormProps {
   onSubmit: (task: Omit<Task, 'id' | 'createdAt'>) => void
@@ -17,10 +19,13 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
     dueDate: new Date().toISOString().split('T')[0],
     category: 'Other',
     tags: [] as string[],
-    completed: false
+    completed: false,
+    estimatedTime: undefined as number | undefined,
+    subtasks: [] as Subtask[]
   })
 
   const [tagInput, setTagInput] = useState('')
+  const [subtaskInput, setSubtaskInput] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,9 +41,12 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
       dueDate: new Date().toISOString().split('T')[0],
       category: 'Other',
       tags: [],
-      completed: false
+      completed: false,
+      estimatedTime: undefined,
+      subtasks: []
     })
     setTagInput('')
+    setSubtaskInput('')
   }
 
   const addTag = () => {
@@ -58,6 +66,28 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
     })
   }
 
+  const addSubtask = () => {
+    if (subtaskInput.trim()) {
+      const subtask: Subtask = {
+        id: Date.now().toString(),
+        title: subtaskInput.trim(),
+        completed: false
+      }
+      setFormData({
+        ...formData,
+        subtasks: [...formData.subtasks, subtask]
+      })
+      setSubtaskInput('')
+    }
+  }
+
+  const removeSubtask = (subtaskId: string) => {
+    setFormData({
+      ...formData,
+      subtasks: formData.subtasks.filter(st => st.id !== subtaskId)
+    })
+  }
+
   const handleTagInputKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -65,8 +95,15 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
     }
   }
 
+  const handleSubtaskInputKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addSubtask()
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
       <div>
         <label className="text-sm font-medium text-gray-700 mb-2 block">
           Title *
@@ -125,25 +162,44 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
         </div>
       </div>
 
-      <div>
-        <label className="text-sm font-medium text-gray-700 mb-2 block">
-          Category
-        </label>
-        <Select
-          value={formData.category}
-          onValueChange={(value) => setFormData({ ...formData, category: value })}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Design">Design</SelectItem>
-            <SelectItem value="Development">Development</SelectItem>
-            <SelectItem value="Documentation">Documentation</SelectItem>
-            <SelectItem value="Meeting">Meeting</SelectItem>
-            <SelectItem value="Other">Other</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            Category
+          </label>
+          <Select
+            value={formData.category}
+            onValueChange={(value) => setFormData({ ...formData, category: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Design">Design</SelectItem>
+              <SelectItem value="Development">Development</SelectItem>
+              <SelectItem value="Documentation">Documentation</SelectItem>
+              <SelectItem value="Meeting">Meeting</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <Clock className="h-4 w-4 inline mr-1" />
+            Estimated Time (minutes)
+          </label>
+          <Input
+            type="number"
+            value={formData.estimatedTime || ''}
+            onChange={(e) => setFormData({ 
+              ...formData, 
+              estimatedTime: e.target.value ? parseInt(e.target.value) : undefined 
+            })}
+            placeholder="e.g. 60"
+            min="0"
+          />
+        </div>
       </div>
 
       <div>
@@ -165,10 +221,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
         {formData.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {formData.tags.map((tag, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-800"
-              >
+              <Badge key={index} variant="secondary" className="text-xs">
                 {tag}
                 <button
                   type="button"
@@ -177,13 +230,49 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
                 >
                   ×
                 </button>
-              </span>
+              </Badge>
             ))}
           </div>
         )}
       </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
+      <div>
+        <label className="text-sm font-medium text-gray-700 mb-2 block">
+          Subtasks
+        </label>
+        <div className="flex space-x-2 mb-2">
+          <Input
+            value={subtaskInput}
+            onChange={(e) => setSubtaskInput(e.target.value)}
+            onKeyPress={handleSubtaskInputKeyPress}
+            placeholder="Add a subtask"
+            className="flex-1"
+          />
+          <Button type="button" onClick={addSubtask} variant="outline" size="sm">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {formData.subtasks.length > 0 && (
+          <div className="space-y-2">
+            {formData.subtasks.map((subtask) => (
+              <div key={subtask.id} className="flex items-center space-x-2 p-2 border rounded">
+                <span className="flex-1 text-sm">{subtask.title}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeSubtask(subtask.id)}
+                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end space-x-2 pt-4 border-t">
         <Button type="submit" className="bg-primary hover:bg-primary/90">
           Create Task
         </Button>
